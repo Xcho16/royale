@@ -1,0 +1,272 @@
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Battle Royale</title>
+        <meta charset ="utf-8">
+        
+        <script src="https://www.gstatic.com/firebasejs/5.8.1/firebase.js"></script>
+        <script src="https://rawcdn.githack.com/bureyburey/bad-words-compact/520ca0221951c4577ab331116b931f04dd88fc1e/bad-words-compact.min.js"></script>
+        <script src="https://rawcdn.githack.com/bureyburey/canvas-joystick/5f999252c0d8d1ee77cab3d7e1ff980e72918e7f/joystick.js"></script>
+        <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    </head>
+    
+    <body>
+    				<audio controls >
+        								<source src="music.mp3" type="audio/mpeg"></audio>
+    				<style >
+    								
+body {
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+     -khtml-user-select: none; /* Konqueror HTML */
+       -moz-user-select: none; /* Firefox */
+        -ms-user-select: none; /* Internet Explorer/Edge */
+            user-select: none; /* Non-prefixed version, currently */
+    background: black;
+}
+h3{
+    color: white;
+    text-align: center;
+}
+#screen-1{
+    display: flex;
+    flex-direction: column;
+}
+
+#screen-1 div{
+    width: 95vw;
+    color: white;
+}
+
+#screen-1 img{
+    height: 30vw;
+    margin: 2px 0;
+    border-radius: 5px;
+}
+
+#screen-2{
+    display: none;
+}
+
+#debug{
+    color: white;
+    display: flex;
+    flex-direction: column;
+    width: 95vw;
+    word-break: break-all;
+}
+
+#debug > div:nth-child(even){
+    background: grey;
+}
+
+#canvas {
+    width: 95vw;
+    /*height: 90vh;*/
+    border:1px solid red;
+    background: no-repeat center center fixed;
+    background-size: cover;
+}
+
+#chat-form{
+    display: none;
+}
+
+#chat-form > input{
+    flex: 1;
+}
+
+#join-form{
+    display: flex;
+}
+
+.blue { background-color: #3b8ec2; }
+
+.styled-select, .styled-button {
+   height: 29px;
+   overflow: hidden;
+   width: 240px;
+   margin: 0 1px;
+}
+
+.styled-select select {
+   background: transparent;
+   border: none;
+   font-size: 12px;
+   height: 29px;
+   padding: 5px; /* If you add too much padding here, the options won't show in IE */
+   width: 268px;
+   color: white;
+}
+
+.styled-button{
+   border: none;
+   font-size: 10px;
+   height: 29px;
+   padding: 5px; /* If you add too much padding here, the options won't show in IE */
+   width: 268px;
+   color: white;
+}
+
+.semi-square {
+   -webkit-border-radius: 5px;
+   -moz-border-radius: 5px;
+   border-radius: 5px;
+}
+		
+    				</style>
+    				
+        <div id="screen-1">
+            <h3>Սեղմեք նկարի վրա և մտեք խաղ</h3>
+            <div id="join-form">
+                <input placeholder="Player Name:" id="name" />
+                <div class="styled-select blue semi-square">
+                <select id="gender">
+                    <option value="RANDOM">Random</option>
+                    <option value="SKELETON">Skeleton</option>
+                    <option value="HANK">Hank (M)</option>
+                    <option value="MAGE">Mage (M)</option>
+                    <option value="PRINCESS">Princess (F)</option>
+                    <option value="FEMALE">Female</option>
+                    <option value="MALE">Male</option>
+                    <option value="PIXIE">Pixie (F)</option>
+                    <option value="ORC">Orc (M)</option>
+                    <option value="RED">Red (F)</option>
+                    <option value="KNIGHT_M">Knight (M)</option>
+                    <option value="KNIGHT_F">Knight (F)</option>
+                </select>
+                </div>
+                <button class="styled-button blue semi-square" onclick="viewChangelog()">Click</button>
+            </div>
+            <div id="MEADOW-users">Online Players: Loading...</div>
+            <img onclick="init(event)" name="MEADOW" src="baza1.jpg"/>
+            <div id="BEACH-users">Online Players: Loading...</div>
+            <img onclick="init(event)" name="BEACH" src="baza2.jpg"/>
+            <div id="GRASS-users">Online Players: Loading...</div>
+            <img onclick="init(event)" name="GRASS" src="baza3.jpg"/>
+        </div>
+        
+        <div id="screen-2">
+            <canvas id="canvas" width="500" height="500" />
+        </div>
+        
+        <form autocomplete="off" id="chat-form">
+            <input placeholder="Message:" id="message" />
+            <button type="submit" onclick="sendMessage(event)">Send</button>
+            <button onclick="showPlayers(event)">Players</button>
+        </form>
+        <div id="debug" />
+        				
+        				
+        <script>
+function gUid() {
+    var S4 = function() {
+        return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
+    };
+    return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
+}
+
+function log(msg, append) {
+    var debug = document.getElementById("debug");
+    msg = window.markdown.specToEntities(msg);
+    if(append){
+        debug.innerHTML = `<div>${msg}</div>${debug.innerHTML}`;
+    }
+    else{
+        debug.innerHTML = `<div>${msg}</div>`;
+    }
+}
+
+function bezierCurve(ctx, centerX, centerY, width, height,fillType) {
+// draws a single ellipse
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY - height / 2);
+
+    ctx.bezierCurveTo(
+        centerX + width / 2, centerY - height / 2,
+        centerX + width / 2, centerY + height / 2,
+        centerX, centerY + height / 2
+    );
+    ctx.bezierCurveTo(
+        centerX - width / 2, centerY + height / 2,
+        centerX - width / 2, centerY - height / 2,
+        centerX, centerY - height / 2
+    );
+    
+    ctx.closePath();
+    if(fillType==='fill')
+        ctx.fill();
+    else
+        ctx.stroke();
+}
+
+Array.prototype.find = Array.prototype.find || function(callback) {
+  if (this === null) {
+    throw new TypeError('Array.prototype.find called on null or undefined');
+  } else if (typeof callback !== 'function') {
+    throw new TypeError('callback must be a function');
+  }
+  var list = Object(this);
+  // Makes sures is always has an positive integer as length.
+  var length = list.length >>> 0;
+  var thisArg = arguments[1];
+  for (var i = 0; i < length; i++) {
+    var element = list[i];
+    if ( callback.call(thisArg, element, i, list) ) {
+      return element;
+    }
+  }
+};
+
+
+if(!Array.prototype.includes){Object.defineProperty(Array.prototype,'includes',{value:function(searchElement,fromIndex){if(this==null){throw new TypeError('"this" is null or not defined')}
+var o=Object(this);var len=o.length>>>0;if(len===0){return!1}
+var n=fromIndex|0;var k=Math.max(n>=0?n:len-Math.abs(n),0);function sameValueZero(x,y){return x===y||(typeof x==='number'&&typeof y==='number'&&isNaN(x)&&isNaN(y))}
+while(k<len){if(sameValueZero(o[k],searchElement)){return!0}
+k++}
+return!1}})};
+
+
+window.markdown = {
+    // Michael Ermishin's Markdown module
+    htmlEntitiesMap: {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+        ' ': '&nbsp;'
+    },    
+    specToEntities: function(text) {
+    if(text[0]==="$"){return text.replaceAll('$','')}
+        var pattern = new RegExp('[' + Object.keys(this.htmlEntitiesMap).join('') + ']', 'g');
+        return text.replace(pattern, function (m) {
+            return markdown.htmlEntitiesMap[m];
+        });
+    },
+    entitiesToSpec: function(text) {
+        var entToSpecMap = Object.keys(this.htmlEntitiesMap).reduce(function(obj, key) {
+            obj[markdown.htmlEntitiesMap[key]] = key;
+            return obj;
+        }, {});
+
+        var pattern = new RegExp(Object.keys(entToSpecMap).join('|'), 'g');
+        return text.replace(pattern, function (m) {
+            return entToSpecMap[m];
+        });
+    }
+};
+
+function viewChangelog(){
+    alert("Happy New Year 2021 Armenia Strong")
+}
+
+
+function randVal(min, max){
+    return Math.floor(Math.random() * (max - min) + min);
+}
+        </script>
+        <script src="main.js "></script>
+    </body>
+</html>
